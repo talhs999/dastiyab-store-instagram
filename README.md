@@ -1,213 +1,249 @@
-# Dastiyab Store — DM Sales Agent
+# 🛍️ Dastiyab Store — AI Instagram & WhatsApp Sales Agent
 
-Instagram/Facebook DM sales agent for **Dastiyab Store** (dastiyabstore.com, Karachi).
-It chats with customers in Roman Urdu + English, sells from the live product catalog,
-confirms COD orders, and WhatsApps the order details to the owner.
+An intelligent, full-stack AI Sales & Automation Agent built specifically for **Dastiyab Store** (`dastiyabstore.com`, Karachi, Pakistan).
 
-**How it runs on Vercel (serverless):** there is no always-on process. Instead two
-Vercel Crons do the work:
-
-| Cron | Schedule | What it does |
-|---|---|---|
-| `/api/cron/check-dms` | every 2 min | Pull new IG/FB DMs → agent replies (human-like bubbles) → confirmed orders → WhatsApp to owner via Baileys |
-| `/api/cron/sync-catalog` | daily 03:00 PKT | Re-scrape dastiyabstore.com → detect new/removed/price/stock changes → update catalog → WhatsApp summary to owner |
-
-Plus a tiny dark-themed dashboard at `/` (orders, stock alerts, DM activity) and
-`/api/health` for status.
+The agent acts as a 24/7 human-like salesperson on Instagram & Facebook DMs: it answers customer questions in natural Roman Urdu, recommends verified in-stock products from the store catalog, highlights special offers (such as **Karachi Free Delivery**), collects Cash on Delivery (COD) order details, and instantly sends order receipts to the store owner's WhatsApp via Baileys!
 
 ---
 
-## 1. Model choice — why no fine-tuning / "training"
+## 📑 Table of Contents
+1. [System Architecture & Workflow Diagram](#-system-architecture--workflow-diagram)
+2. [Key Features](#-key-features)
+3. [Project Directory & File Guide](#-project-directory--file-guide)
+4. [Tech Stack](#-tech-stack)
+5. [Setup & Installation Guide](#-setup--installation-guide)
+6. [WhatsApp Pairing Guide](#-whatsapp-pairing-guide)
+7. [AI Sales Rules & Store Policies](#-ai-sales-rules--store-policies)
+8. [Live DM Inbox & Simulator](#-live-dm-inbox--simulator)
+9. [Vercel Deployment & Crons](#-vercel-deployment--crons)
+10. [Official Meta Graph API (Next Steps)](#-official-meta-graph-api-next-steps)
 
-We use **Gemini** (via its OpenAI-compatible endpoint) with a strong system prompt
-plus the live product catalog injected into every reply. **No fine-tuning, no
-"complete training"** — deliberately:
+---
 
-- The task is narrow: 47 known products, fixed COD sales flow. A good prompt +
-  catalog grounding already answers reliably.
-- Fine-tuning costs time and money and would need hundreds of labeled
-  conversations we don't have — it buys nothing for this use-case.
-- Swapping models later is one env var (`LLM_MODEL`); nothing is baked in.
+## 📊 System Architecture & Workflow Diagram
 
-Any OpenAI-compatible API works — point `LLM_BASE_URL` at it.
+```mermaid
+graph TD
+    subgraph Customer_Interaction [Customer Side]
+        C[Customer on Instagram / FB] -->|Sends DM: 'Hy / Price kya hai?'| IG[Instagram Direct Inbox]
+    end
 
-## 2. Human-like messaging
+    subgraph AI_Engine [AI Sales Core]
+        IG -->|Fetch DM| AGENT[lib/agent.ts: Gemini 3.8 Flash]
+        CAT[(data/catalog.json: 47 Approved Products)] --> AGENT
+        CAM[(data/campaign.json: Karachi Free Delivery Pitch)] --> AGENT
+        AGENT -->|Generate Roman Urdu Sales Bubbles| BUBBLES[Short Human-like Chat Bubbles]
+        BUBBLES -->|Reply delivered to Customer| IG
+        AGENT -->|Extract confirmed COD Order| ORDER[Order Details Extracted]
+    end
 
-A real shopkeeper doesn't send 8-line paragraphs. The agent:
-
-1. Generates a reply, then `splitIntoBubbles()` (in `lib/agent.ts`) breaks it
-   into **2–3 short bubbles** (max ~2 short lines / 160 chars each, split on
-   sentence boundaries, never mid-word, max 4 bubbles).
-2. The cron route sends bubbles **one by one with a 1.2–2.5s "typing" pause**
-   between them — like a person typing on IG/WhatsApp.
-
-The model is also prompted to write in short bursts, so the splitter mostly
-just respects its line breaks.
-
-## 3. Environment variables
-
-Copy `.env.example` → `.env.local` (local) and set the same in Vercel
-(Project → Settings → Environment Variables):
-
-| Var | What |
-|---|---|
-| `LLM_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta/openai/` (or any OpenAI-compatible base) |
-| `LLM_API_KEY` | Google AI Studio key (free at aistudio.google.com) |
-| `LLM_MODEL` | `gemini-2.0-flash` |
-| `WA_CREDS_JSON` | Baileys session (base64, printed by `npm run wa:login`) — Vercel production only |
-| `OWNER_WHATSAPP` | Owner's WhatsApp number, e.g. `923162975195` |
-| `IG_COOKIES` / `FB_COOKIES` | Session cookies (see §5) — easiest login method |
-| `CRON_SECRET` | Long random string; Vercel sends it automatically on cron hits |
-| `DATA_DIR` | Writable dir for conversations/orders/synced catalog (default `/tmp/dastiyab-agent`) |
-
-## 4. GitHub → Vercel deploy
-
-```bash
-cd ~/workspace/dastiyab-store/agent
-git init
-git add .
-git commit -m "Dastiyab DM agent v0.1"
-gh repo create dastiyab-dm-agent --private --source=. --push
-# or: create the repo on github.com and
-# git remote add origin git@github.com:<you>/dastiyab-dm-agent.git
-# git push -u origin main
+    subgraph Store_Owner [Store Owner Side]
+        ORDER -->|Instant Alert via Baileys| WA[Owner WhatsApp: 923162975195]
+        WA -->|Owner commands: 'aaj m10 pe delivery free hai'| AGENT
+        DASH[Web Dashboard: localhost:3000] -->|Update Pitch / View Live Chats / Sync Catalog| AGENT
+        DASH -->|Scan Baileys QR Code| WA
+    end
 ```
 
-Vercel:
-1. **Add New → Project → Import** the repo.
-2. Framework preset: Next.js (auto-detected).
-3. Add all **Environment Variables** from §3 (Production + Preview).
-4. Deploy. `vercel.json` registers both crons automatically —
-   check **Project → Cron Jobs** to confirm they're active.
+---
 
-> ⚠️ **Vercel plan limits:** Hobby-plan crons have restricted frequency —
-> a `*/2 * * * *` schedule may be throttled to a slower cadence on Hobby.
-> If replies feel delayed, that's the cause. Options: upgrade to Pro, or
-> move the DM listener to a small VPS (see §8) and keep Vercel for the
-> dashboard/API.
+## 🌟 Key Features
 
-## 5. Instagram / Facebook login (NO Meta App ID — by design)
+### 1. 🤖 Human-Like AI Salesperson (`lib/agent.ts`)
+* **Model:** Powered by Google's latest **`gemini-3.8-flash`** via OpenAI-compatible endpoint.
+* **Natural Roman Urdu:** Speaks like a helpful Pakistani shopkeeper (*"Walaikum Assalam! Dastiyab Store mein welcome!..."*).
+* **Multi-Bubble Messages:** Doesn't send robotic walls of text; breaks responses into 2–3 short, natural chat bubbles with natural typing pauses.
+* **COD Order Extractor:** Automatically extracts Customer Name, Mobile Number, City, and Address once confirmed.
 
-The owner chose the session-cookie route instead of a Meta App ID, so
-`lib/meta.ts` drives the same web endpoints instagram.com uses, authenticated
-with the owner's login cookies. **This is unofficial and fragile** — Meta
-changes these endpoints, and aggressive polling risks rate limits. The cron's
-2-minute cadence is deliberately gentle.
+### 2. 📲 Real-Time WhatsApp Alerts & Control (`lib/whatsapp.ts`)
+* **Zero Paid API Fees:** Uses Baileys (`@whiskeysockets/baileys`) for WhatsApp Web connection.
+* **1-Click Dashboard QR Scan:** Renders live pairing QR code right on the web dashboard (`http://localhost:3000`).
+* **Owner Commands via WhatsApp:** The store owner can text commands in WhatsApp ("Message yourself" / Note to Self or direct chat):
+  * `"status"` — returns current promo, active products, and recent orders.
+  * `"bhai aaj ads chalaye hain to m10 pe delivery free kardo"` — AI understands naturally and updates sales pitch immediately!
 
-**Setup (recommended — cookie paste):**
-1. Log in to Instagram in a normal desktop browser (as the store account).
-2. Open DevTools → Application → Cookies → `instagram.com`, copy the full
-   `Cookie` header value (e.g. via DevTools Network tab, any request).
-3. Paste it into `IG_COOKIES` (Vercel env). Same for `FB_COOKIES` if/when the
-   Facebook flow is wired (currently a documented stub — see below).
-4. Redeploy (or wait for env propagation).
+### 3. 💬 Live Instagram Inbox & Chat History (`app/components/LiveChatInbox.tsx`)
+* **Two-Pane Messenger Interface:** Left panel shows customer threads with unread indicators and "Order Confirmed" badges; right panel displays full chat history.
+* **📋 1-Click Copy for Instagram:** Easily copy the AI's response with a single click and paste directly into Instagram DM.
+* **🧪 Test Customer Chat Simulator:** Type any test inquiry (or click quick presets like *"M10 wholesale rate?"*, *"Karachi delivery charges?"*) to test the AI's live responses.
 
-`MetaSessionClient.loginWithPassword()` exists as a best-effort helper but
-**2FA / login challenges can't be solved in code** — use cookie-paste then.
+### 4. 📦 Filtered Product Catalog (`data/catalog.json`)
+* **Strictly 47 Core Products:** Includes high-demand gadgets, earbuds (M10, M19, M28, Air31), neckbands, rechargeable mini fans, crystal lamps, and 6-in-1 makeup sets.
+* **No Clothing / Nightsuits:** All clothing, sleepwear, and apparel are completely filtered out per store policy.
+* **Wholesale Policy:** Wholesale/vendor inquiries are quoted the standard retail catalog price (no special wholesale discounts).
 
-**Facebook status:** `getNewMessages()`/`sendMessage()` for Facebook are
-documented stubs in `lib/meta.ts` — personal-account FB messaging has no
-stable private endpoint. The cron skips Facebook gracefully until either the
-official API is adopted or a working session flow is captured.
+### 5. 📢 Dynamic Campaign Manager (`app/components/CampaignCard.tsx`)
+* Change delivery fees, active offers, or promotional rules in natural language or via a direct editable announcement box. Updates apply across all AI conversations immediately.
 
-## 6. WhatsApp setup (Baileys — NO api key)
+### 6. 🔄 Automated Daily Catalog & Price Sync (`app/api/cron/sync-catalog`)
+* Re-scrapes `dastiyabstore.com/shop` daily to detect price changes, out-of-stock items, or new products, and sends a WhatsApp summary to the owner.
 
-> Correction: "Bellys" was a mishearing — it's **Baileys**
-> (`@whiskeysockets/baileys`), the open-source WhatsApp Web library.
-> There is **no API key and no HTTP API**. You scan a QR once with the
-> owner's WhatsApp, the session persists, and the agent sends through it.
+---
 
-**Option A — terminal (recommended):**
-1. `npm run wa:login`
-2. Scan the printed QR with WhatsApp (⋮ menu → **Linked devices → Link a
-   device**).
-3. Session is saved to `data/baileys-auth/` (gitignored — never commit it).
+## 📁 Project Directory & File Guide
 
-**Option B — dashboard:** the dashboard has a WhatsApp card that shows the
-link status and renders a QR when not linked (works best in local dev).
+```
+├── app/
+│   ├── api/
+│   │   ├── campaign/route.ts         # GET/POST: Update store promo rules & pitch
+│   │   ├── catalog/sync/route.ts     # POST: Manual catalog scraper trigger
+│   │   ├── conversations/route.ts   # GET/POST: Retrieve chat threads, manual owner replies & simulation
+│   │   ├── cron/
+│   │   │   ├── check-dms/route.ts    # Vercel Cron (2 min): Check DMs, reply, extract COD orders
+│   │   │   └── sync-catalog/route.ts # Vercel Cron (Daily 03:00 PKT): Shop scraper & price check
+│   │   ├── health/route.ts           # Status endpoint for uptime monitoring
+│   │   └── wa/
+│   │       ├── disconnect/route.ts   # POST: Log out WhatsApp session
+│   │       ├── qr/route.ts           # GET: Raw QR string
+│   │       └── status/route.ts       # GET: Live WhatsApp connection status & QR image
+│   ├── components/
+│   │   ├── CampaignCard.tsx          # Dashboard card to update pitch & promo instructions
+│   │   ├── CatalogSyncCard.tsx       # Dashboard card showing catalog health & sync button
+│   │   ├── LiveChatInbox.tsx         # Full-featured DM Inbox, message viewer & simulator
+│   │   └── WhatsAppCard.tsx          # Real-time QR display, link status & owner help
+│   ├── layout.tsx                    # Root HTML layout with dark theme & Inter typography
+│   └── page.tsx                      # Main Dashboard page aggregating all cards
+├── data/
+│   ├── baileys-auth/                 # (Gitignored) WhatsApp pairing credentials on disk
+│   ├── campaign.json                 # Active campaign settings, pitch & custom instructions
+│   ├── catalog.json                  # Clean 47-product catalog snapshot
+│   ├── conversations.json            # In-memory / file-based customer DM threads
+│   └── meta.json                     # Sync timestamps & processed message IDs
+├── lib/
+│   ├── agent.ts                      # AI Brain: Gemini client, system prompt, order extraction
+│   ├── catalog.ts                    # Catalog loader & fuzzy search helper
+│   ├── meta.ts                       # Instagram/Facebook session client & messaging API
+│   ├── store.ts                      # Local JSON persistence layer
+│   ├── sync.ts                       # HTML scraper for dastiyabstore.com/shop
+│   └── whatsapp.ts                   # Baileys WhatsApp client, QR generator & message handler
+├── scripts/
+│   └── wa-login.ts                   # Terminal-based WhatsApp QR pairing script
+├── .env.example                      # Template for required environment variables
+├── .gitignore                        # Strict rules excluding credentials & secrets
+├── next.config.mjs                   # Next.js configuration with serverComponentsExternalPackages
+├── package.json                      # Dependencies & npm scripts
+├── tsconfig.json                     # TypeScript compiler configuration
+└── vercel.json                       # Vercel Cron job configuration
+```
 
-**For Vercel production:** `/tmp` is ephemeral, so session files won't
-survive between cron runs. After pairing locally, `npm run wa:login`
-prints a `WA_CREDS_JSON` base64 string — paste it into Vercel env vars.
-The app restores the session from it automatically on every run.
+---
 
-Each cron run does **connect → send → close** with the saved creds
-(serverless-friendly). On a future VPS worker the socket can stay
-persistent instead — see `getWhatsAppSocket()` in `lib/whatsapp.ts` and §9.
+## 🛠️ Tech Stack
 
-## 7. Daily catalog sync
+* **Framework:** Next.js 14 (App Router, Server Components & Route Handlers)
+* **Language:** TypeScript 5.5
+* **AI Model:** Google Gemini 3.8 Flash (`gemini-3.8-flash`) via Generative Language API
+* **WhatsApp Library:** `@whiskeysockets/baileys` (v6.17.16) + `qrcode`
+* **Styling:** Custom Sleek Dark-Themed CSS System (No heavy CSS framework lock-in)
+* **Runtime:** Node.js v20+
 
-`sync-catalog` re-fetches `dastiyabstore.com/shop` every morning, diffs it
-against the known catalog and:
+---
 
-- **New products** → added, flagged `needsReview: true` (verify details on
-  the dashboard's stock-alerts card).
-- **Removed from site** → marked out-of-stock (never deleted, keeps history).
-- **Price changes / stock flips** → updated in place.
-- Sends the owner a WhatsApp summary of every change (or "koi change nahi").
+## 🚀 Setup & Installation Guide
 
-Key catalog fact the agent relies on: Dastiyab's own products have **no
-variant selectors** — a theme/color difference is a separate listing
-(e.g. 3-in-1 Pink vs Purple are distinct product ids). The system prompt
-and order extraction both enforce this.
+### Prerequisites
+1. **Node.js:** v20 or higher installed.
+2. **Google AI Studio Key:** Free API key from [aistudio.google.com](https://aistudio.google.com/).
+3. **Mobile Phone with WhatsApp:** To scan the QR code.
 
-## 8. Swapping to the official Meta API later
+### Step 1: Clone Repository
+```bash
+git clone https://github.com/talhs999/dastiyab-store-instagram.git
+cd dastiyab-store-instagram
+```
 
-`lib/meta.ts` is the only module that knows about session hacks. Everything
-else (cron route, agent, WhatsApp, dashboard) depends only on the
-`DMMessage` interface + `getNewMessages()`/`sendMessage()`. To go official:
-
-1. Create a Meta App, connect the IG Business account + FB Page, pass app review.
-2. Rewrite `MetaSessionClient` to call the Graph API / Instagram Messaging API
-   webhooks instead (same method signatures).
-3. Nothing else changes.
-
-## 9. VPS migration note (when 24/7 real-time matters)
-
-Vercel Cron polling = simple, free, but replies lag up to ~2 minutes and each
-run cold-starts. When order volume justifies it:
-
-- Move **only the DM listener** to a cheap VPS (~$4–6/mo, Hetzner/Contabo):
-  a small Node process holding the login session, polling every ~15s,
-  calling the same `lib/` logic (extract `lib/` into a shared package or
-  call the Vercel API routes from the VPS).
-- Keep the **dashboard + API + crons** on Vercel untouched.
-
-Do **not** use Hostinger shared hosting for the listener — long-running Node
-processes get killed there; it's for websites, not bots.
-
-## 10. Local dev
-
+### Step 2: Install Dependencies
 ```bash
 npm install
-cp .env.example .env.local   # fill in keys
-npm run dev                  # http://localhost:3000
-npm run typecheck            # tsc --noEmit
 ```
 
-Trigger crons manually (with `CRON_SECRET` set):
-
+### Step 3: Configure Environment Variables
+Create a `.env.local` file in the project root:
 ```bash
-curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/check-dms
-curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-catalog
+cp .env.example .env.local
 ```
 
-## Project layout
+Edit `.env.local` with your values:
+```env
+# 1. Google Gemini AI Key
+LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+LLM_API_KEY=your_gemini_api_key_here
+LLM_MODEL=gemini-3.8-flash
 
+# 2. Store Owner WhatsApp (Country code without '+' or '0')
+OWNER_WHATSAPP=923162975195
+
+# 3. Instagram Session Cookies (Optional for web scraping)
+IG_COOKIES=your_instagram_cookies_here
+
+# 4. Security
+CRON_SECRET=your_custom_secret_key_here
 ```
-app/
-  page.tsx                    dark branded dashboard (orders, stock alerts, DM activity)
-  api/health/route.ts         liveness + catalog stats
-  api/cron/check-dms/route.ts DM check → bubble replies → order → WhatsApp
-  api/wa/qr/route.ts        WhatsApp pairing QR for the dashboard card
-  api/cron/sync-catalog/route.ts daily shop re-scrape + diff + WhatsApp summary
-lib/
-  agent.ts    salesperson brain (Gemini), bubble splitter, order extraction
-  catalog.ts  catalog loading/search (synced copy preferred, bundled fallback)
-  whatsapp.ts Baileys WhatsApp (QR pairing, no API key) + scripts/wa-login.ts
-  meta.ts     session-based IG/FB client (FRAGILE — see header comment)
-  store.ts    JSON-file persistence (ephemeral on Vercel — migrate to KV later)
-data/
-  catalog.json  bundled snapshot of the 47 products (2026-10-06)
-vercel.json     cron schedules
+
+### Step 4: Run Development Server
+```bash
+npm run dev
 ```
+Open your browser and navigate to **`http://localhost:3000`**.
+
+---
+
+## 📲 WhatsApp Pairing Guide
+
+1. Open **`http://localhost:3000`** in your browser.
+2. Look at the **WhatsApp Connection** card on the right.
+3. A QR code will appear within 1–2 seconds.
+4. On your mobile phone:
+   * Open **WhatsApp** → Tap **⋮ (Three dots)** or **Settings** → **Linked devices** → **Link a device**.
+   * Scan the QR code on the screen.
+5. The card will instantly turn green and display **"Linked & Active (+923162975195)"**!
+
+---
+
+## 💬 AI Sales Rules & Store Policies
+
+| Scenario | AI Policy / Behavior |
+|---|---|
+| **Delivery Charges** | Special Promo: **Karachi mein delivery bilkul FREE hai!** Standard COD charges apply to other cities across Pakistan. |
+| **Wholesale / Bulk Inquiry** | Do not offer arbitrary wholesale discounts. Quote the **standard catalog retail price** (prices are already marked down to wholesale level). |
+| **Product Scope** | Sells strictly from approved 47 items (Earbuds, Neckbands, Mini Fans, Lamps, Makeup Sets). Never recommends or sells clothing or nightsuits. |
+| **Tone of Voice** | Friendly, authentic Pakistani salesperson in Roman Urdu (*"Bhai", "Jee bilkul", "Assalam-o-Alaikum"*). |
+| **Order Confirmation** | Requires Customer Name, Phone Number, and Full Address before marking an order as confirmed. |
+
+---
+
+## 🖥️ Live DM Inbox & Simulator
+
+The dashboard includes a full inbox interface:
+* **View Real Chats:** Review full conversation histories between customers and the AI assistant.
+* **1-Click Copy:** Click **`📋 Copy for Instagram`** on any AI reply bubble to paste it directly into Instagram.
+* **Manual Reply:** Type a custom message in the input box at the bottom to send a reply as the store owner.
+* **DM Simulator:** Click **`🧪 Test Customer Chat`** to test how the AI responds to any customer query before going live.
+
+---
+
+## ☁️ Vercel Deployment & Crons
+
+1. Push your repository to GitHub.
+2. Log into [vercel.com](https://vercel.com) and **Import** the repository.
+3. Set your environment variables in **Settings → Environment Variables**:
+   * `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `OWNER_WHATSAPP`, `CRON_SECRET`.
+   * For WhatsApp on Vercel: After local pairing, copy the base64 credentials string and set it as `WA_CREDS_JSON`.
+4. Deploy! `vercel.json` automatically registers:
+   * `/api/cron/check-dms` (runs every 2 minutes)
+   * `/api/cron/sync-catalog` (runs daily at 03:00 PKT)
+
+---
+
+## 🌐 Official Meta Graph API (Next Steps)
+
+For 100% automated, zero-click message delivery on Instagram without browser cookie limitations:
+1. Switch `@dastiyabstore` to an **Instagram Professional (Business) Account**.
+2. Connect it to a **Facebook Page** in Meta Business Suite.
+3. Enable **"Allow access to messages"** in Instagram Settings → Messages.
+4. Hook the official webhook to `/api/cron/check-dms` for instant sub-second responses.
+
+---
+
+### 👨‍💻 Developed For
+**Dastiyab Store (dastiyabstore.com)** — Karachi, Pakistan.
