@@ -1,0 +1,121 @@
+{
+  "ig:thread_talha_khan": {
+    "threadId": "ig:thread_talha_khan",
+    "platform": "instagram",
+    "handle": "Talha Khan 🐎",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hy",
+        "at": "2026-10-11T06:10:00.000Z"
+      },
+      {
+        "role": "assistant",
+        "text": "Assalam-o-Alaikum! Kya haal hain aapke? 😊\n\nDastiyab Store mein welcome! Aaj kya dekhna chahenge aap? Gadgets, gift sets ya personal care? Karachi mein special promo par delivery bilkul FREE hai!",
+        "at": "2026-10-11T06:10:25.000Z"
+      }
+    ],
+    "orderNotified": false,
+    "updatedAt": "2026-10-11T06:10:25.000Z"
+  },
+  "ig:thread_its_amnwww": {
+    "threadId": "ig:thread_its_amnwww",
+    "platform": "instagram",
+    "handle": "IT'S AMNWWW 📌",
+    "messages": [
+      {
+        "role": "user",
+        "text": "AOA bhai mera order kab tak deliver hoga?",
+        "at": "2026-10-10T23:45:00.000Z"
+      },
+      {
+        "role": "assistant",
+        "text": "Thanks for choosing Dastiyab store, your order has been dispatched! Inshallah 24 se 48 hours mein rider deliver kar dega.",
+        "at": "2026-10-11T00:15:00.000Z"
+      }
+    ],
+    "orderNotified": true,
+    "updatedAt": "2026-10-11T00:15:00.000Z"
+  },
+  "ig:thread_shoaib_khalid": {
+    "threadId": "ig:thread_shoaib_khalid",
+    "platform": "instagram",
+    "handle": "Shoaib Khalid",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Bhai mujhe order place karna hai cash on delivery pe",
+        "at": "2026-10-11T03:50:00.000Z"
+      },
+      {
+        "role": "assistant",
+        "text": "Order confirm Karne ke liya mujhe ye details share kardein:\n1. Mukammal Naam\n2. Mobile Number\n3. Delivery Address (Karachi delivery free hai!)\n\nHum foran booking confirm karke parcel dispatch queue mein dalte hain.",
+        "at": "2026-10-11T04:15:00.000Z"
+      }
+    ],
+    "orderNotified": false,
+    "updatedAt": "2026-10-11T04:15:00.000Z"
+  },
+  "ig:thread_drakewears": {
+    "threadId": "ig:thread_drakewears",
+    "platform": "instagram",
+    "handle": "Drakewears",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Bhai product catalog dekhna tha",
+        "at": "2026-10-11T04:00:00.000Z"
+      },
+      {
+        "role": "assistant",
+        "text": "You sent an attachment. (Dastiyab Store Hot Selling Products Catalog)",
+        "at": "2026-10-11T04:05:00.000Z"
+      }
+    ],
+    "orderNotified": false,
+    "updatedAt": "2026-10-11T04:05:00.000Z"
+  },
+  "ig:thread_sharaz_nar": {
+    "threadId": "ig:thread_sharaz_nar",
+    "platform": "instagram",
+    "handle": "Sharaz Nar",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Parcel rider aakar call karega pehle?",
+        "at": "2026-10-11T02:00:00.000Z"
+      },
+      {
+        "role": "assistant",
+        "text": "Jee bilkul Sharaz bhai, delivery se pehle rider aapke phone par call karega. Parcel khol kar check kar sakte hain.",
+        "at": "2026-10-11T02:10:00.000Z"
+      },
+      {
+        "role": "user",
+        "text": "Okay",
+        "at": "2026-10-11T02:12:00.000Z"
+      }
+    ],
+    "orderNotified": false,
+    "updatedAt": "2026-10-11T02:12:00.000Z"
+  },
+  "ig:thread_syed_noman_moiz": {
+    "threadId": "ig:thread_syed_noman_moiz",
+    "platform": "instagram",
+    "handle": "Syed Noman Moiz",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Bhai K8 Wireless Mic ka rate bata dein",
+        "at": "2026-10-11T01:10:00.000Z"
+      },
+      {
+        "role": "assistant",
+        "text": "Only 1499 rs. Aur abhi special campaign mein Karachi delivery bilkul FREE hai!",
+        "at": "2026-10-11T01:15:00.000Z"
+      }
+    ],
+    "orderNotified": false,
+    "updatedAt": "2026-10-11T01:15:00.000Z"
+  }
+}

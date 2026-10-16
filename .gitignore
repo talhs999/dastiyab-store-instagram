@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env*.local
+# Baileys WhatsApp session (owner's login — never commit)
+data/baileys-auth/
+data/sessions.json
+*.tsbuildinfo
+*.log
+.DS_Store
